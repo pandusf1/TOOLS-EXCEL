@@ -91,8 +91,6 @@
 </div>
 
 <script>
-    const GEMINI_API_KEY = "AIzaSyCWvQ-dCRQ-gXK1qT-IyJnzqMhPxayskZM"; // Masukkan API Key kamu di sini
-
     let currentData = [];
     let currentDynamicFilename = "Laporan_Analisis.xlsx";
 
@@ -177,8 +175,7 @@
         XLSX.writeFile(workbook, currentDynamicFilename);
     }
 
-    // === 4. AI ANALYST ===
-    async function processWithAI() {
+async function processWithAI() {
         const userPrompt = document.getElementById('aiPrompt').value.trim();
         const errorDiv = document.getElementById('aiError');
         const summaryDiv = document.getElementById('aiSummary');
@@ -186,7 +183,6 @@
         errorDiv.style.display = 'none';
         summaryDiv.style.display = 'none';
 
-        if (!GEMINI_API_KEY) return showError("API Key belum diatur.");
         if (currentData.length < 2) return showError("Load data mentah terlebih dahulu.");
         if (!userPrompt) return showError("Masukkan instruksi analisis.");
 
@@ -201,26 +197,17 @@
         btnText.innerText = "Proses...";
 
         try {
-            const systemPrompt = `Kamu adalah Senior System Analyst. Manipulasi data berikut sesuai instruksi.
-ATURAN STRICT: Jawab HANYA berupa raw JSON object dengan struktur:
-{
-  "filename": "nama_file_relevan.xlsx",
-  "summary": "Penjelasan singkat perubahan data.",
-  "data": [ ["Header1", "Header2"], ["Val1", "Val2"] ]
-}
-DILARANG menambahkan teks markdown, backtick, atau apapun selain raw JSON.
-
-Instruksi: ${userPrompt}
-Data: ${JSON.stringify(currentData)}`;
-
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+            // Tembak ke Serverless Function Vercel milik kita sendiri
+            const response = await fetch('/api/gemini', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt }] }] })
+                // Hanya kirim instruksi user & data. System prompt diurus backend.
+                body: JSON.stringify({ prompt: userPrompt, data: currentData }) 
             });
 
             const result = await response.json();
-            if (!response.ok) throw new Error(result.error?.message || "Kesalahan API.");
+            
+            if (!response.ok) throw new Error(result.error || "Kesalahan Server.");
 
             let aiOutput = result.candidates[0].content.parts[0].text;
             aiOutput = aiOutput.replace(/```json/g, '').replace(/```/g, '').trim();
